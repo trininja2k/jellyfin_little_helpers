@@ -3,6 +3,7 @@
 # - Text-Subs (ASS/SRT/WebVTT) → mov_text
 # - Bild-Subs (PGS/VobSub) → externe Datei extrahieren
 # - Unbekannte Subs → weglassen
+# - HEVC hev1 → hvc1 Tag-Fix für WebOS/Chromium-Player
 
 INPUT_DIR="${1:-.}"
 
@@ -29,12 +30,10 @@ for f in "$INPUT_DIR"/*.mkv; do
 
         case "$codec" in
             ass|ssa|subrip|srt|webvtt|mov_text)
-                # Text-basiert → mov_text inline
                 SUB_MAP_ARGS+=(-map "0:${stream_index}")
                 has_text_sub=true
                 ;;
             hdmv_pgs_subtitle|dvd_subtitle|dvb_subtitle)
-                # Bild-basiert → extern extrahieren
                 has_bitmap_sub=true
                 ext="sup"
                 [ "$codec" = "dvd_subtitle" ] && ext="sub"
@@ -52,7 +51,18 @@ for f in "$INPUT_DIR"/*.mkv; do
         esac
     done
 
-    # Codec-Argument nur setzen wenn text-subs vorhanden
+    # hev1 → hvc1 Tag-Fix für WebOS-Kompatibilität
+    VIDEO_TAG_ARGS=()
+    video_codec_tag=$(ffprobe -v error \
+        -select_streams v:0 \
+        -show_entries stream=codec_tag_string \
+        -of csv=p=0 "$f")
+
+    if [ "$video_codec_tag" = "hev1" ]; then
+        echo "    → HEVC Tag: hev1 → hvc1 (WebOS-Fix)"
+        VIDEO_TAG_ARGS=(-tag:v hvc1)
+    fi
+
     $has_text_sub && SUB_CODEC_ARGS=(-c:s mov_text)
 
     echo "    → Remux Video+Audio$(${has_text_sub} && echo '+TextSubs' || echo '')"
@@ -62,6 +72,7 @@ for f in "$INPUT_DIR"/*.mkv; do
         -map 0:a \
         "${SUB_MAP_ARGS[@]}" \
         -c:v copy \
+        "${VIDEO_TAG_ARGS[@]}" \
         -c:a copy \
         "${SUB_CODEC_ARGS[@]}" \
         -map_chapters 0 \
