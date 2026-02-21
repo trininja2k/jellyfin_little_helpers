@@ -1,19 +1,13 @@
 #!/bin/bash
 # hvc1fix.sh - Fixes HEVC codec tag from hev1 → hvc1 for WebOS/Chromium compatibility
 # Usage: ./hvc1fix.sh [DIRECTORY]
-#        Default: current directory
-#        Supports: .mp4, .m4v
 
 INPUT_DIR="${1:-.}"
 FIXED=0
 SKIPPED=0
 ERRORS=0
 
-for f in "$INPUT_DIR"/**/*.mp4 "$INPUT_DIR"/**/*.m4v \
-          "$INPUT_DIR"/*.mp4 "$INPUT_DIR"/*.m4v; do
-    [ -f "$f" ] || continue
-
-    # Codec-Tag des ersten Video-Streams prüfen
+while IFS= read -r -d '' f; do
     tag=$(ffprobe -v error \
         -select_streams v:0 \
         -show_entries stream=codec_tag_string \
@@ -28,7 +22,7 @@ for f in "$INPUT_DIR"/**/*.mp4 "$INPUT_DIR"/**/*.m4v \
     echo "==> Fixing: $f"
     echo "    → Tag: hev1 → hvc1"
 
-    tmp="${f%.mp*}_hvc1fix.mp4"
+    tmp="${f%.*}_hvc1fix.mp4"
 
     ffmpeg -v warning \
         -i "$f" \
@@ -48,7 +42,7 @@ for f in "$INPUT_DIR"/**/*.mp4 "$INPUT_DIR"/**/*.m4v \
     fi
 
     echo ""
-done
+done < <(find "$INPUT_DIR" \( -iname "*.mp4" -o -iname "*.m4v" \) -type f -print0)
 
 echo "================================================"
 echo "  Fertig: ${FIXED} gefixed | ${SKIPPED} übersprungen | ${ERRORS} Fehler"
