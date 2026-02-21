@@ -10,6 +10,9 @@ SKIPPED=0
 ERRORS=0
 
 while IFS= read -r -d '' f; do
+    # _hvc1fix.mp4 Temp-Dateien überspringen
+    [[ "$f" == *_hvc1fix.mp4 ]] && continue
+
     tag=$(ffprobe -v error \
         -select_streams v:0 \
         -show_entries stream=codec_tag_string \
@@ -20,8 +23,6 @@ while IFS= read -r -d '' f; do
         -show_entries stream=codec_name \
         -of csv=p=0 "$f" 2>/dev/null | tr -d '[:space:]')
 
-    # hev1 direkt, als Hex, oder HEVC ohne hvc1-Tag → fixen
-    # 0x31766568 = hev1 in Little-Endian hex
     needs_fix=false
     if [ "$tag" = "hev1" ] || [ "$tag" = "0x31766568" ]; then
         needs_fix=true
